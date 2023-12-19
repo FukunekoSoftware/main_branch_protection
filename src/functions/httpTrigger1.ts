@@ -7,13 +7,11 @@ import { Error, ErrorType } from "./api/Error";
 import { GitHubAPI } from "./api/GitHubAPI";
 
 export async function httpTrigger1(request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
-    context.log(`Http function processed request for url "${request.url}"`);
+    context.log(`Branch protection function has been triggered: "${request.url}"`);
 
     try {
         const body: string = await request.text();
-
         const signature = request.headers.get('x-hub-signature-256');
-        console.log(`signature: ${signature}`);
         const getSignatureSecretResult: Result<string, Error> = await getSignatureSecret();
         if (getSignatureSecretResult.isFailure()) {
             console.error(`getPatToken() failed. Error type: ${getSignatureSecretResult.error.type}, message: ${getSignatureSecretResult.error.message}`)
@@ -31,16 +29,13 @@ export async function httpTrigger1(request: HttpRequest, context: InvocationCont
         }
         const signatureSecret = getSignatureSecretResult.value;
         const calculatedSignature = calculateSignature(signatureSecret, body);
-        context.log(`calculatedSignature: ${calculatedSignature}`);
         if (calculatedSignature !== signature) {
-            const errorMessage = `"x-hub-signature-256" header signature and caluculated signature didn't match.`;
+            const errorMessage = `"x-hub-signature-256" header signature and caluculated signature didn't match. signature: ${signature}, calculatedSignature: ${calculatedSignature}`;
             console.error(errorMessage);
             return { status: 400, body: errorMessage };
         }
 
         const repositoriesEvent: RepositoriesEvent = JSON.parse(body);
-        console.log(repositoriesEvent);
-
         if (repositoriesEvent.action !== "created") {
             console.log(`Skip subsequent processing because the action is not "created"`);
             return { status: 304 };
@@ -51,7 +46,6 @@ export async function httpTrigger1(request: HttpRequest, context: InvocationCont
         console.log(`defaultBranch: ${defaultBranch}`);
 
         const owner: User = repository.owner;
-
         const getTokenResult: Result<string, Error> = await getPatToken();
         if (getTokenResult.isFailure()) {
             console.error(`getPatToken() failed. Error type: ${getTokenResult.error.type}, message: ${getTokenResult.error.message}`)
@@ -70,16 +64,16 @@ export async function httpTrigger1(request: HttpRequest, context: InvocationCont
         const token: string = getTokenResult.value;
         const api: GitHubAPI = new GitHubAPI(token);
 
+        // TODO add type information
         const protectBranchResult: Response = await api.protectBranch(owner.login, repository.name, defaultBranch);
-        console.log(protectBranchResult);
         if (!protectBranchResult.ok) {
             return { status: 500 };
         }
         const protectBranchResultJson = await protectBranchResult.json();
         console.log(protectBranchResultJson);
 
+        // TODO add type information
         const createIssueResult: Response = await api.createIssue(owner.login, repository.name);
-        console.log(createIssueResult);
         if (!createIssueResult.ok) {
             return { status: 500 };
         }
