@@ -14,7 +14,7 @@
     "@azure/functions": "^4.0.0",
     "@azure/identity": "^4.0.0",
     "@azure/keyvault-secrets": "^4.7.0",
-    "node-fetch": "^2.6.1"
+    "node-fetch": "^2.6.7"
   },
   "devDependencies": {
     "@types/node": "^18.x",
